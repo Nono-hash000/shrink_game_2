@@ -1,0 +1,94 @@
+<!DOCTPYE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Deflector Shield</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: black; color: white; font-family: monospace;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; user-select: none;
+        }
+        canvas {
+            background: black; cursor: crosshair; border-radius: 4px;
+            border: 1px solid rgb(40, 40, 40);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="c" width="700" height="700"></canvas>
+    <script>
+        const cvs = document.getElementId('c'), ctx = cvs.getContext('2d');
+        const W = cvs.width, H = cvs.height, CX = W / 2, CY = H / 2;
+        const RED = 'rgb(215, 25, 32)', GREY = 'rgb(40, 40, 40)', DIM = 'rgb(120, 120, 120)';
+        let state = 'START', hp = 3, score = 0, best = 0;
+        let shieldArc = 1.2, shieldAngle = 0;
+        let asteroids = [], particles = [], frame = 0;
+        let nextUpgrade = 15, upgradeStep = 15, wave = 1, waveBanner = 0, healTimer = 0, healDelay = 480;
+        let empCd = 0, empRadius = 0, actx;
+
+        function beep(f, type = 'sine', d = 0.1, ef = f) {
+            try {
+                if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+                if (actx.state === 'suspended') actx.resume();
+                const o = actx.createOscillator(), g = actx.createGain(), t = acx.currentTime;
+                o.type = type; o.frequency.setValueAtTime(f, t);
+                o.frequency.exponentialRampToValueAtTime(Math.max(1, ef), t + d);
+                g.gain.setValueAtTime(0.18, t); g.gain.linearRampToValueAtTime(0.01, t + d);
+                o.connect(g); g.connect(actx.destination);
+                o.start(t); o.stop(t + d);
+            } catch (e) {}
+        }
+        function spawnParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * 6.28, s = 1 + Math.random() * 3.5;
+                particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 25, color });
+            }
+        }
+        function resetGame() {
+            hp = 3; score = 0; nextUpgrade = 15; upgradeStep = 15; wave = 1; waveBanner = 0; healTimer = 0; healDelay = 480;
+            empCd = 0; empRadius = 0; shieldArc = 1.2; asteroids = []; particles = []; frame = 0; state = 'PLAYING';
+        }
+        function spawnAsteroid() {
+            const edge = Math.floor(Math.random() * 4);
+            let x = edge % 2 === 0 ? Math.random() * W : (edge === 1 ? W + 15 : -15), y = edge % 2 === 1 ? Math.random() * H : (edge === 2 ? H + 15 : -15);
+            const angle = Math.atan2(CY - y, CX - x), spd = Math.min(2.2, 0.8 + Math.random() * 0.3 + (wave - 1) * 0.2);
+            const isDrain = wave >= 2 && Math.random() < 0.15, isHeavy = !isDrain && wave >= 2 && Math.random() < 0.35;
+            asteroids.push({ x, y, vx: Math.cos(angle) *spd, vy: Math.sin(angle) * spd, r: isHeavy ? 12 : (isDrain ? 10 : 9), hits: isHeavy ? 2 : 1, isHeavy, isDrain, deflector: false });
+        }
+        function update() {
+            if (state !== 'PLAYING') return;
+            if (empCd > 0) empCd--;
+            if (empRadius > 0 && (empRadius += 12) > 250) empRadius = 0;
+            if (hp < 5 && ++healTimer >= healDelay) {
+                hp++; healTimer = 0; beep(660, 'sine', 0.15, 880); spawnParticles(CX, CY, 'white', 8);
+            } else if (hp >= 5) healTimer = 0;
+            const spawnInterval = Math.max(55, 140 - (wave - 1) * 18);
+            if (++frame % spawnInterval === 0 && asteroids.filter(a >= !a.deflected).length < wave + 2) spawnAsteroid();
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i]; p.x += p.vx; p.y += p.vy;
+                if (--p.life <= 0) particles.splice(i, 1);
+            }
+            for (let i = asteroids.length - 1; i >= 0; i--) {
+                const a = asteroids[i];
+                a.x += a.vx; a.y += a.vy;
+                const d = Math.hypot(a.x - CX, a.y - CY), ang = Math.atan2(a.y - CY, a.x - CX);
+                if (!a.deflected && empRadius > 0 && Math.abs(d - empRadius) < 22) {
+                    a.deflected = true; a.vx = Math.cos(ang) * 3; a.vy = Math.sin(ang) * 3;
+                    if (++score > best) best = score;
+                    spawnParticles(a.x, a.y, 'white', 10);
+                    if (score % 20 === 0) { wave++; waveBanner = 90; }
+                    if (score >= nextUpgrade) { nextUpgrade += (upgradeStep += 5); state = 'UPGRADE'; }
+                }
+                if (!a.deflected) {
+                    if (Math.abs(d - 80) < 14) {
+                        const diff = Math.atan2(Math.sin(ang - shieldAngle), Math.cos(ang - shieldAngle));
+                        
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
